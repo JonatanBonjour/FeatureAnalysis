@@ -1,7 +1,7 @@
-# Feature Analysis Notebook
+# Feature Analysis
 
 ## Dependencies
-To run this notebook, you need the following Python libraries:
+You need the following Python libraries:
 - numpy
 - pandas
 - matplotlib
@@ -14,7 +14,6 @@ To run this notebook, you need the following Python libraries:
 Make sure these are installed in your Python environment.
 
 ## Overview of functionalities
-The notebook includes several key functions, each designed to perform specific types of analysis:
 
 1. **Plotting functions**
    - `hist_plot()`: Generates histograms.
@@ -32,10 +31,7 @@ The notebook includes several key functions, each designed to perform specific t
    - `analyze_feature()`: This function conducts a thorough analysis of a specific feature, including generating plots, computing statistics, and compiling the results into a PDF report.
 
 ## Usage
-- Import the required libraries and set up the notebook environment.
-- Load or create your DataFrame. If you are using your own data, ensure it has the necessary columns as shown in the sample DataFrame.
-- Call the `analyze_feature()` function with your DataFrame, the feature you want to analyze, and the directory path to save the output.
+Refer to the example provided in the example_notebook. Use the analyze_feature() function, passing in your DataFrame, the specific feature you wish to analyze, and the directory path where you want the output (plots and pdf) to be saved.
 
-## Output
-- The notebook saves various plots and a PDF report containing the analysis results in the specified directory.
+
 
