@@ -39,15 +39,14 @@ def violin_plot(dataframe, feature, save_dir_path=None, smoothing=0.3):
     plt.show()
 
 
-def waterfalls_plot(dataframe, feature, save_dir_path=None):
+def waterfall_plot(dataframe, feature, save_dir_path=None):
     """Waterfall plot for the given feature"""
     df = dataframe.dropna(subset=['response']).reset_index(drop=True)
     sorted_df = df.sort_values(by=feature, ascending=True)
-    palette = {True: '#1f77b4', False: '#ff7f0e'}
+    palette = {1: '#1f77b4', 0: '#ff7f0e'}
     plt.figure(figsize=(8, 5))
 
-    for _, row in sorted_df.iterrows():
-        plt.bar(row['patient_id'], row[feature], width=1, color=palette[row['response']])
+    plt.bar(sorted_df['patient_id'], sorted_df[feature], color=sorted_df['response'].map(palette), width=1)
 
     plt.xlabel('Patients')
     plt.ylabel(feature)
@@ -240,7 +239,7 @@ def analyze_feature(dataframe, feature, save_dir_path):
     # Create plots and compute statistics
     hist_plot(dataframe, feature, save_dir_path)
     violin_plot(dataframe, feature, save_dir_path)
-    waterfalls_plot(dataframe, feature, save_dir_path)
+    waterfall_plot(dataframe, feature, save_dir_path)
     km_plot(dataframe, feature, save_dir_path, 2, 'os')
     km_plot(dataframe, feature, save_dir_path, 3, 'os')
     km_plot(dataframe, feature, save_dir_path, 2, 'pfs')
