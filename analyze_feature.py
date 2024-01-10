@@ -12,7 +12,7 @@ from lifelines.statistics import logrank_test, proportional_hazard_test
 from sklearn.model_selection import LeaveOneOut
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from fpdf import FPDF
 
 
@@ -128,12 +128,21 @@ def logranktest(dataframe, feature, type='os'):
     return lrt.p_value
 
 
-def cph_univariable_analysis(dataframe, feature, type='os', use_dichotomization=False):
+def cph_univariable_analysis(dataframe, feature, type='os', use_dichotomization=False, scaling_method=None):
     """For the Cox proportional hazard univariable analysis on a single feature,
-    with an option to use dichotomization of the feature around the median value.
+    with an option to use dichotomization of the feature around the median value,
+    and an option to standardize or normalize the feature.
     It also includes testing the proportional hazards assumption using Schoenfeld residuals."""
 
     df = dataframe.dropna(subset=[f'{type}_event', f'{type}_months']).reset_index(drop=True)
+
+    # Apply scaling if requested
+    if scaling_method:
+        if scaling_method == 'standardize':
+            scaler = StandardScaler()
+        elif scaling_method == 'normalize':
+            scaler = MinMaxScaler()
+        df[feature] = scaler.fit_transform(df[[feature]])
 
     # Calculate median and dichotomize the feature if required
     if use_dichotomization:
