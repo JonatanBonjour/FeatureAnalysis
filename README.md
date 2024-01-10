@@ -20,6 +20,7 @@ Make sure these are installed in your Python environment.
    - `violin_plot()`: Creates violin plots.
    - `waterfalls_plot()`: Constructs waterfall plots.
    - `km_plot()`: Plots Kaplan-Meier survival curves.
+   - `forest_plot()`: Creates forest plot.
 
 2. **Statistical analysis functions**
    - `mann_whitney_p()`: Computes the Mann-Whitney U test p-value.
