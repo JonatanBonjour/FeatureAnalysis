@@ -2,6 +2,7 @@
 
 import seaborn as sns
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.ticker import MultipleLocator
@@ -172,6 +173,44 @@ def cph_univariable_analysis(dataframe, feature, type='os', use_dichotomization=
     return results_dict
 
 
+def forest_plot(dataframe, feature, save_dir_path=None, scale='linear'):
+    """Forest plot for the Cox proportional hazard univariable analysis on a single feature."""
+
+    # Perform the analysis for each configuration
+    results_os = cph_univariable_analysis(dataframe, feature, type='os', scaling_method='normalize',
+                                          use_dichotomization=False)
+    results_os_dich = cph_univariable_analysis(dataframe, feature, type='os', use_dichotomization=True)
+    results_pfs = cph_univariable_analysis(dataframe, feature, type='pfs', scaling_method='normalize',
+                                           use_dichotomization=False)
+    results_pfs_dich = cph_univariable_analysis(dataframe, feature, type='pfs', use_dichotomization=True)
+
+    # Prepare data for the forest plot
+    forest_data = {
+        'Analysis': ['OS normalized', 'OS dichotomized', 'PFS normalized', 'PFS dichotomized'],
+        'HR': [results_os['exp(coef)'], results_os_dich['exp(coef)'],
+               results_pfs['exp(coef)'], results_pfs_dich['exp(coef)']],
+        'lower_CI': [results_os['exp(coef) lower 95%'], results_os_dich['exp(coef) lower 95%'],
+                     results_pfs['exp(coef) lower 95%'], results_pfs_dich['exp(coef) lower 95%']],
+        'upper_CI': [results_os['exp(coef) upper 95%'], results_os_dich['exp(coef) upper 95%'],
+                     results_pfs['exp(coef) upper 95%'], results_pfs_dich['exp(coef) upper 95%']]
+    }
+    forest_df = pd.DataFrame(forest_data)
+
+    plt.figure(figsize=(8, 5))
+
+    plt.errorbar(forest_df['HR'], forest_df['Analysis'], xerr=(forest_df['HR'] - forest_df['lower_CI'],
+                                                               forest_df['upper_CI'] - forest_df['HR']), fmt='o')
+    plt.xscale(scale)
+    plt.xlabel('HR')
+    plt.title('Forest plot of univariable Cox analysis')
+    plt.axvline(x=1, color='grey', linestyle='--')
+    plt.tight_layout()
+
+    if save_dir_path is not None:
+        plt.savefig(f'{save_dir_path}/forest_{feature}.png', dpi=200)
+    plt.show()
+
+
 def logistic_regression_loocv_auc(dataframe, feature):
     """AUC from logistic regression with leave-one-out cross-validation"""
     df = dataframe.dropna(subset=['response']).reset_index(drop=True)
@@ -253,6 +292,7 @@ def analyze_feature(dataframe, feature, save_dir_path):
     km_plot(dataframe, feature, save_dir_path, 3, 'os')
     km_plot(dataframe, feature, save_dir_path, 2, 'pfs')
     km_plot(dataframe, feature, save_dir_path, 3, 'pfs')
+    forest_plot(dataframe, feature, save_dir_path)
     stats = compute_stats(dataframe, feature)
     print(stats)
 
@@ -268,7 +308,10 @@ def analyze_feature(dataframe, feature, save_dir_path):
     pdf.image(f'{save_dir_path}/hist_{feature}.png', y=current_y, w=90, h=0)
     pdf.image(f'{save_dir_path}/violin_{feature}.png', x=110, y=current_y, w=90, h=0)
     pdf.ln(50 + 5)
-    pdf.image(f'{save_dir_path}/waterfall_{feature}.png', w=90, h=0)
+    current_y = pdf.get_y()
+    pdf.image(f'{save_dir_path}/waterfall_{feature}.png', y=current_y, w=90, h=0)
+    pdf.image(f'{save_dir_path}/forest_{feature}.png', x=110, y=current_y, w=90, h=0)
+    pdf.ln(50 + 5)
     current_y = pdf.get_y()
     pdf.image(f'{save_dir_path}/km_os_2_curves_{feature}.png', y=current_y, w=90, h=0)
     pdf.image(f'{save_dir_path}/km_pfs_2_curves_{feature}.png', x=110, y=current_y, w=90, h=0)
