@@ -129,7 +129,7 @@ def logranktest(dataframe, feature, type='os'):
     return lrt.p_value
 
 
-def cph_univariable_analysis(dataframe, feature, type='os', use_dichotomization=False, scaling_method=None):
+def cph_univariable_analysis(dataframe, feature, type='os', use_dichotomization=False, scaling_method='standardize'):
     """For the Cox proportional hazard univariable analysis on a single feature,
     with an option to use dichotomization of the feature around the median value,
     and an option to standardize or normalize the feature.
@@ -143,6 +143,8 @@ def cph_univariable_analysis(dataframe, feature, type='os', use_dichotomization=
             scaler = StandardScaler()
         elif scaling_method == 'normalize':
             scaler = MinMaxScaler()
+        else:
+            raise ValueError('Invalid scaling method')
         df[feature] = scaler.fit_transform(df[[feature]])
 
     # Calculate median and dichotomize the feature if required
@@ -173,20 +175,21 @@ def cph_univariable_analysis(dataframe, feature, type='os', use_dichotomization=
     return results_dict
 
 
-def forest_plot(dataframe, feature, save_dir_path=None, scale='linear'):
+def forest_plot(dataframe, feature, save_dir_path=None, scale='linear', scaling_method='standardize'):
     """Forest plot for the Cox proportional hazard univariable analysis on a single feature."""
 
     # Perform the analysis for each configuration
-    results_os = cph_univariable_analysis(dataframe, feature, type='os', scaling_method='normalize',
+    results_os = cph_univariable_analysis(dataframe, feature, type='os', scaling_method=scaling_method,
                                           use_dichotomization=False)
     results_os_dich = cph_univariable_analysis(dataframe, feature, type='os', use_dichotomization=True)
-    results_pfs = cph_univariable_analysis(dataframe, feature, type='pfs', scaling_method='normalize',
+    results_pfs = cph_univariable_analysis(dataframe, feature, type='pfs', scaling_method=scaling_method,
                                            use_dichotomization=False)
     results_pfs_dich = cph_univariable_analysis(dataframe, feature, type='pfs', use_dichotomization=True)
 
     # Prepare data for the forest plot
+    scaling_name = f"{scaling_method}d" if scaling_method is not None else 'no scaling'
     forest_data = {
-        'Analysis': ['OS normalized', 'OS dichotomized', 'PFS normalized', 'PFS dichotomized'],
+        'Analysis': [f'OS {scaling_name}', 'OS dichotomized', f'PFS {scaling_name}', 'PFS dichotomized'],
         'HR': [results_os['exp(coef)'], results_os_dich['exp(coef)'],
                results_pfs['exp(coef)'], results_pfs_dich['exp(coef)']],
         'lower_CI': [results_os['exp(coef) lower 95%'], results_os_dich['exp(coef) lower 95%'],
@@ -211,7 +214,7 @@ def forest_plot(dataframe, feature, save_dir_path=None, scale='linear'):
     plt.show()
 
 
-def logistic_regression_loocv_auc(dataframe, feature):
+def logistic_regression_loocv_auc(dataframe, feature, scaling_method='standardize'):
     """AUC from logistic regression with leave-one-out cross-validation"""
     df = dataframe.dropna(subset=['response']).reset_index(drop=True)
     X = df[[feature]]
@@ -227,9 +230,15 @@ def logistic_regression_loocv_auc(dataframe, feature):
         y_train, y_test = (y.iloc[train_index], y.iloc[test_index])
 
         # Scale data
-        scaler = MinMaxScaler()
-        X_train.loc[:, feature] = scaler.fit_transform(X_train[[feature]]).ravel()
-        X_test.loc[:, feature] = scaler.transform(X_test[[feature]]).ravel()
+        if scaling_method:
+            if scaling_method == 'standardize':
+                scaler = StandardScaler()
+            elif scaling_method == 'normalize':
+                scaler = MinMaxScaler()
+            else:
+                raise ValueError('Invalid scaling method')
+            X_train.loc[:, feature] = scaler.fit_transform(X_train[[feature]]).ravel()
+            X_test.loc[:, feature] = scaler.transform(X_test[[feature]]).ravel()
 
         # Initialize and fit logistic regression model
         model = LogisticRegression(penalty='l2', class_weight='balanced',
@@ -246,14 +255,14 @@ def logistic_regression_loocv_auc(dataframe, feature):
     return auc
 
 
-def compute_stats(dataframe, feature):
+def compute_stats(dataframe, feature, scaling_method='standardize'):
     """Compute statistics for a feature"""
     results = {}
     results['Mann-Whitney p-value'] = mann_whitney_p(dataframe, feature)
     results['Logrank OS p-value'] = logranktest(dataframe, feature)
     results['Logrank PFS p-value'] = logranktest(dataframe, feature, type='pfs')
-    cox_os = cph_univariable_analysis(dataframe, feature)
-    cox_pfs = cph_univariable_analysis(dataframe, feature, type='pfs')
+    cox_os = cph_univariable_analysis(dataframe, feature, type='os', scaling_method=scaling_method)
+    cox_pfs = cph_univariable_analysis(dataframe, feature, type='pfs', scaling_method=scaling_method)
     cox_os_dichotomized = cph_univariable_analysis(dataframe, feature, use_dichotomization=True)
     cox_pfs_dichotomized = cph_univariable_analysis(dataframe, feature, type='pfs', use_dichotomization=True)
     results['Cox OS p-value'] = cox_os['p']
@@ -268,11 +277,12 @@ def compute_stats(dataframe, feature):
     results['Cox PFS dichotomized p-value'] = cox_pfs_dichotomized['p']
     results['Cox PFS dichotomized HR'] = cox_pfs_dichotomized['exp(coef)']
     results['Cox PFS dichotomized assumption p-value'] = cox_pfs_dichotomized['assumption p']
-    results['Logistic regression LOOCV AUC'] = logistic_regression_loocv_auc(dataframe, feature)
+    results['Logistic regression LOOCV AUC'] = logistic_regression_loocv_auc(dataframe, feature,
+                                                                             scaling_method=scaling_method)
     return results
 
 
-def analyze_feature(dataframe, feature, save_dir_path):
+def analyze_feature(dataframe, feature, save_dir_path, scaling_method='standardize'):
     """
     Analyze a specific feature in a given dataframe and save the analysis results.
 
@@ -292,8 +302,8 @@ def analyze_feature(dataframe, feature, save_dir_path):
     km_plot(dataframe, feature, save_dir_path, 3, 'os')
     km_plot(dataframe, feature, save_dir_path, 2, 'pfs')
     km_plot(dataframe, feature, save_dir_path, 3, 'pfs')
-    forest_plot(dataframe, feature, save_dir_path)
-    stats = compute_stats(dataframe, feature)
+    forest_plot(dataframe, feature, save_dir_path, scaling_method=scaling_method)
+    stats = compute_stats(dataframe, feature, scaling_method=scaling_method)
     print(stats)
 
     # Create PDF file
@@ -321,7 +331,8 @@ def analyze_feature(dataframe, feature, save_dir_path):
     pdf.image(f'{save_dir_path}/km_pfs_3_curves_{feature}.png', x=110, y=current_y, w=90, h=0)
     pdf.ln(50 + 5)
     pdf.set_font('Arial', '', 10)
-    pdf.cell(40, 10, f'Not dichotomized:', ln=0)
+    scaling_name = f"{scaling_method.capitalize()}d" if scaling_method is not None else 'Not scaled'
+    pdf.cell(40, 10, f'{scaling_name}:', ln=0)
     pdf.cell(70, 10, f'Cox OS HR: {round(stats["Cox OS HR"], 5)}', ln=0)
     pdf.cell(70, 10, f'Cox PFS HR: {round(stats["Cox PFS HR"], 5)}')
     pdf.ln(5)
