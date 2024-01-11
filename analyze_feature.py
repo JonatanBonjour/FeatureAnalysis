@@ -28,11 +28,11 @@ def hist_plot(dataframe, feature, save_dir_path=None, bins=10):
     plt.show()
 
 
-def violin_plot(dataframe, feature, save_dir_path=None, smoothing=0.3):
+def violin_plot(dataframe, feature, save_dir_path=None, smoothing=0.3, outcome='response'):
     """Plot a violin plot for the given feature"""
     palette = {0: '#ff7f0e', 1: '#1f77b4'}
     plt.figure(figsize=(8, 5))
-    sns.violinplot(x='response', y=feature, data=dataframe, palette=palette, bw_adjust=smoothing, inner='quartile')
+    sns.violinplot(x=outcome, y=feature, data=dataframe, palette=palette, bw_adjust=smoothing, inner='quartile')
     plt.title(f'Violin plots')
     plt.tight_layout()
     if save_dir_path is not None:
@@ -40,14 +40,14 @@ def violin_plot(dataframe, feature, save_dir_path=None, smoothing=0.3):
     plt.show()
 
 
-def waterfall_plot(dataframe, feature, save_dir_path=None):
+def waterfall_plot(dataframe, feature, save_dir_path=None, outcome='response'):
     """Waterfall plot for the given feature"""
-    df = dataframe.dropna(subset=['response']).reset_index(drop=True)
+    df = dataframe.dropna(subset=[outcome]).reset_index(drop=True)
     sorted_df = df.sort_values(by=feature, ascending=True)
     palette = {1: '#1f77b4', 0: '#ff7f0e'}
     plt.figure(figsize=(8, 5))
 
-    plt.bar(sorted_df['patient_id'], sorted_df[feature], color=sorted_df['response'].map(palette), width=1)
+    plt.bar(sorted_df['patient_id'], sorted_df[feature], color=sorted_df[outcome].map(palette), width=1)
 
     plt.xlabel('Patients')
     plt.ylabel(feature)
@@ -104,11 +104,11 @@ def km_plot(dataframe, feature, save_dir_path=None, num_curves=2, type='os', sho
     plt.show()
 
 
-def mann_whitney_p(dataframe, feature):
-    """Compute the Mann-Whitney U test for the given feature (response 0 vs 1) and returns the p-value"""
-    df = dataframe.dropna(subset=['response']).reset_index(drop=True)
-    table1 = df.loc[(df['response'] == 1)][feature]
-    table2 = df.loc[(df['response'] == 0)][feature]
+def mann_whitney_p(dataframe, feature, outcome='response'):
+    """Compute the Mann-Whitney U test for the given feature (outcome 0 vs 1) and returns the p-value"""
+    df = dataframe.dropna(subset=[outcome]).reset_index(drop=True)
+    table1 = df.loc[(df[outcome] == 1)][feature]
+    table2 = df.loc[(df[outcome] == 0)][feature]
     stat, p = mannwhitneyu(table1, table2)
     return p
 
@@ -214,11 +214,11 @@ def forest_plot(dataframe, feature, save_dir_path=None, scale='linear', scaling_
     plt.show()
 
 
-def logistic_regression_loocv_auc(dataframe, feature, scaling_method='standardize'):
+def logistic_regression_loocv_auc(dataframe, feature, scaling_method='standardize', outcome='response'):
     """AUC from logistic regression with leave-one-out cross-validation"""
-    df = dataframe.dropna(subset=['response']).reset_index(drop=True)
+    df = dataframe.dropna(subset=[outcome]).reset_index(drop=True)
     X = df[[feature]]
-    y = df['response'].astype(int)
+    y = df[outcome].astype(int)
 
     probabilities = []
     loo = LeaveOneOut()
@@ -255,10 +255,10 @@ def logistic_regression_loocv_auc(dataframe, feature, scaling_method='standardiz
     return auc
 
 
-def compute_stats(dataframe, feature, scaling_method='standardize'):
+def compute_stats(dataframe, feature, scaling_method='standardize', outcome='response'):
     """Compute statistics for a feature"""
     results = {}
-    results['Mann-Whitney p-value'] = mann_whitney_p(dataframe, feature)
+    results['Mann-Whitney p-value'] = mann_whitney_p(dataframe, feature, outcome=outcome)
     results['Logrank OS p-value'] = logranktest(dataframe, feature)
     results['Logrank PFS p-value'] = logranktest(dataframe, feature, type='pfs')
     cox_os = cph_univariable_analysis(dataframe, feature, type='os', scaling_method=scaling_method)
@@ -278,32 +278,33 @@ def compute_stats(dataframe, feature, scaling_method='standardize'):
     results['Cox PFS dichotomized HR'] = cox_pfs_dichotomized['exp(coef)']
     results['Cox PFS dichotomized assumption p-value'] = cox_pfs_dichotomized['assumption p']
     results['Logistic regression LOOCV AUC'] = logistic_regression_loocv_auc(dataframe, feature,
-                                                                             scaling_method=scaling_method)
+                                                                             scaling_method=scaling_method,
+                                                                             outcome=outcome)
     return results
 
 
-def analyze_feature(dataframe, feature, save_dir_path, scaling_method='standardize'):
+def analyze_feature(dataframe, feature, save_dir_path, scaling_method='standardize', outcome='response'):
     """
     Analyze a specific feature in a given dataframe and save the analysis results.
 
     This function performs various statistical analyses and visualizations on a specified feature in the dataframe. It generates histogram, violin, waterfall, and Kaplan-Meier plots, computes statistics, and then consolidates all the results into a PDF file saved in the specified directory.
 
     Parameters:
-    - dataframe (pd.DataFrame): The dataframe containing the data to be analyzed. Must include the columns 'patient_id', 'response', 'os_months', 'os_event', 'pfs_months', and 'pfs_event', in addition to the features.
+    - dataframe (pd.DataFrame): The dataframe containing the data to be analyzed. Must include the columns 'patient_id', outcome, 'os_months', 'os_event', 'pfs_months', and 'pfs_event', in addition to the features.
     - feature (str): The name of the feature (column in the dataframe) to be analyzed.
     - save_dir_path (str): The file path where the resulting plots and PDF file will be saved.
     """
 
     # Create plots and compute statistics
     hist_plot(dataframe, feature, save_dir_path)
-    violin_plot(dataframe, feature, save_dir_path)
-    waterfall_plot(dataframe, feature, save_dir_path)
+    violin_plot(dataframe, feature, save_dir_path, outcome=outcome)
+    waterfall_plot(dataframe, feature, save_dir_path, outcome=outcome)
     km_plot(dataframe, feature, save_dir_path, 2, 'os')
     km_plot(dataframe, feature, save_dir_path, 3, 'os')
     km_plot(dataframe, feature, save_dir_path, 2, 'pfs')
     km_plot(dataframe, feature, save_dir_path, 3, 'pfs')
     forest_plot(dataframe, feature, save_dir_path, scaling_method=scaling_method)
-    stats = compute_stats(dataframe, feature, scaling_method=scaling_method)
+    stats = compute_stats(dataframe, feature, scaling_method=scaling_method, outcome=outcome)
     print(stats)
 
     # Create PDF file
