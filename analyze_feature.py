@@ -47,14 +47,15 @@ def waterfall_plot(dataframe, feature, save_dir_path=None, outcome='response'):
     palette = {1: '#1f77b4', 0: '#ff7f0e'}
     plt.figure(figsize=(8, 5))
 
-    plt.bar(sorted_df['patient_id'], sorted_df[feature], color=sorted_df[outcome].map(palette), width=1)
+    plt.bar(sorted_df.index, sorted_df[feature], color=sorted_df[outcome].astype(int).map(palette), width=1)
 
     plt.xlabel('Patients')
     plt.ylabel(feature)
-    plt.xticks(rotation=90)
+    plt.gca().axes.get_xaxis().set_ticks([])
+    plt.gca().invert_xaxis() # needed?
 
-    true_patch = mpatches.Patch(color=palette[True], label='Responders')
-    false_patch = mpatches.Patch(color=palette[False], label='Non-responders')
+    true_patch = mpatches.Patch(color=palette[True], label=f'{outcome.capitalize()} +')
+    false_patch = mpatches.Patch(color=palette[False], label=f'{outcome.capitalize()} -')
     plt.legend(handles=[true_patch, false_patch])
 
     plt.title(f'Waterfall plot')
@@ -175,7 +176,7 @@ def cph_univariable_analysis(dataframe, feature, type='os', use_dichotomization=
     return results_dict
 
 
-def forest_plot(dataframe, feature, save_dir_path=None, scale='linear', scaling_method='standardize'):
+def forest_plot(dataframe, feature, save_dir_path=None, scale='log', scaling_method='standardize'):
     """Forest plot for the Cox proportional hazard univariable analysis on a single feature."""
 
     # Perform the analysis for each configuration
@@ -290,9 +291,11 @@ def analyze_feature(dataframe, feature, save_dir_path, scaling_method='standardi
     This function performs various statistical analyses and visualizations on a specified feature in the dataframe. It generates histogram, violin, waterfall, and Kaplan-Meier plots, computes statistics, and then consolidates all the results into a PDF file saved in the specified directory.
 
     Parameters:
-    - dataframe (pd.DataFrame): The dataframe containing the data to be analyzed. Must include the columns 'patient_id', outcome, 'os_months', 'os_event', 'pfs_months', and 'pfs_event', in addition to the features.
+    - dataframe (pd.DataFrame): The dataframe containing the data to be analyzed. Must include the columns outcome, 'os_months', 'os_event', 'pfs_months', and 'pfs_event', in addition to the features.
     - feature (str): The name of the feature (column in the dataframe) to be analyzed.
     - save_dir_path (str): The file path where the resulting plots and PDF file will be saved.
+    - scaling_method (str): The scaling method to be used. Must be either 'standardize', 'normalize', or None.
+    - outcome (str): The name of the outcome column in the dataframe.
     """
 
     # Create plots and compute statistics
@@ -307,13 +310,16 @@ def analyze_feature(dataframe, feature, save_dir_path, scaling_method='standardi
     stats = compute_stats(dataframe, feature, scaling_method=scaling_method, outcome=outcome)
     print(stats)
 
+    def format_stat(value):
+        return "<0.00001" if 0 < value < 0.00001 else f"{value:.5f}"
+
     # Create PDF file
     pdf = FPDF()
     pdf.set_top_margin(3)
     pdf.set_auto_page_break(auto=1, margin=1)
     pdf.add_page()
     pdf.set_font('Arial', '', 16)
-    pdf.cell(0, 10, f'Features analysis: {feature}', align='C')
+    pdf.cell(0, 10, f'Feature analysis: {feature}', align='C')
     pdf.ln()
     current_y = pdf.get_y()
     pdf.image(f'{save_dir_path}/hist_{feature}.png', y=current_y, w=90, h=0)
@@ -334,38 +340,40 @@ def analyze_feature(dataframe, feature, save_dir_path, scaling_method='standardi
     pdf.set_font('Arial', '', 10)
     scaling_name = f"{scaling_method.capitalize()}d" if scaling_method is not None else 'Not scaled'
     pdf.cell(40, 10, f'{scaling_name}:', ln=0)
-    pdf.cell(70, 10, f'Cox OS HR: {round(stats["Cox OS HR"], 5)}', ln=0)
-    pdf.cell(70, 10, f'Cox PFS HR: {round(stats["Cox PFS HR"], 5)}')
+    pdf.cell(70, 10, f'Cox OS HR: {format_stat(stats["Cox OS HR"])}', ln=0)
+    pdf.cell(70, 10, f'Cox PFS HR: {format_stat(stats["Cox PFS HR"])}')
     pdf.ln(5)
     pdf.cell(40, 10, f'', ln=0)
-    pdf.cell(70, 10, f'Cox OS p-value: {round(stats["Cox OS p-value"], 5)}', ln=0)
-    pdf.cell(70, 10, f'Cox PFS p-value: {round(stats["Cox PFS p-value"], 5)}')
+    pdf.cell(70, 10, f'Cox OS p-value: {format_stat(stats["Cox OS p-value"])}', ln=0)
+    pdf.cell(70, 10, f'Cox PFS p-value: {format_stat(stats["Cox PFS p-value"])}')
     pdf.ln(5)
     pdf.cell(40, 10, f'', ln=0)
-    pdf.cell(70, 10, f'Cox OS ph assumption p-value: {round(stats["Cox OS assumption p-value"], 5)}', ln=0)
-    pdf.cell(70, 10, f'Cox PFS ph assumption p-value: {round(stats["Cox PFS assumption p-value"], 5)}')
+    pdf.cell(70, 10, f'Cox OS ph assumption p-value: {format_stat(stats["Cox OS assumption p-value"])}', ln=0)
+    pdf.cell(70, 10, f'Cox PFS ph assumption p-value: {format_stat(stats["Cox PFS assumption p-value"])}')
     pdf.ln(7)
     pdf.cell(40, 10, f'Dichotomized:', ln=0)
-    pdf.cell(70, 10, f'logrank OS p-value: {round(stats["Logrank OS p-value"], 5)}', ln=0)
-    pdf.cell(70, 10, f'logrank PFS p-value: {round(stats["Logrank PFS p-value"], 5)}')
+    pdf.cell(70, 10, f'logrank OS p-value: {format_stat(stats["Logrank OS p-value"])}', ln=0)
+    pdf.cell(70, 10, f'logrank PFS p-value: {format_stat(stats["Logrank PFS p-value"])}')
+    pdf.ln(5)
+    pdf.cell(40, 10,f'', ln=0)
+    pdf.cell(70, 10, f'Cox OS HR: {format_stat(stats["Cox OS dichotomized HR"])}', ln=0)
+    pdf.cell(70, 10, f'Cox PFS HR: {format_stat(stats["Cox PFS dichotomized HR"])}')
     pdf.ln(5)
     pdf.cell(40, 10, f'', ln=0)
-    pdf.cell(70, 10, f'Cox OS HR: {round(stats["Cox OS dichotomized HR"], 5)}', ln=0)
-    pdf.cell(70, 10, f'Cox PFS HR: {round(stats["Cox PFS dichotomized HR"], 5)}')
+    pdf.cell(70, 10, f'Cox OS p-value: {format_stat(stats["Cox OS dichotomized p-value"])}', ln=0)
+    pdf.cell(70, 10, f'Cox PFS p-value: {format_stat(stats["Cox PFS dichotomized p-value"])}')
     pdf.ln(5)
     pdf.cell(40, 10, f'', ln=0)
-    pdf.cell(70, 10, f'Cox OS p-value: {round(stats["Cox OS dichotomized p-value"], 5)}', ln=0)
-    pdf.cell(70, 10, f'Cox PFS p-value: {round(stats["Cox PFS dichotomized p-value"], 5)}')
-    pdf.ln(5)
-    pdf.cell(40, 10, f'', ln=0)
-    pdf.cell(70, 10, f'Cox OS ph assumption p-value: {round(stats["Cox OS dichotomized assumption p-value"], 5)}', ln=0)
-    pdf.cell(70, 10, f'Cox PFS ph assumption p-value: {round(stats["Cox PFS dichotomized assumption p-value"], 5)}')
+    pdf.cell(70, 10, f'Cox OS ph assumption p-value: {format_stat(stats["Cox OS dichotomized assumption p-value"])}', ln=0)
+    pdf.cell(70, 10, f'Cox PFS ph assumption p-value: {format_stat(stats["Cox PFS dichotomized assumption p-value"])}')
     pdf.ln(7)
     pdf.cell(40, 10, f'Distribution:', ln=0)
-    pdf.cell(70, 10, f'Mann-Whitney p-value: {round(stats["Mann-Whitney p-value"], 5)}')
+    pdf.cell(70, 10, f'Mann-Whitney p-value: {format_stat(stats["Mann-Whitney p-value"])}')
     pdf.ln(7)
     pdf.cell(40, 10, f'Prediction:', ln=0)
-    pdf.cell(70, 10, f'AUC logistic regression LOOCV: {round(stats["Logistic regression LOOCV AUC"], 5)}')
+    pdf.cell(70, 10, f'AUC logistic regression LOOCV: {format_stat(stats["Logistic regression LOOCV AUC"])}')
     pdf.ln(5)
+
+    # Save and output the PDF
     pdf.output(f'{save_dir_path}/{feature}.pdf', 'F')
     print(f'\n PDF saved in {save_dir_path}/{feature}.pdf')
