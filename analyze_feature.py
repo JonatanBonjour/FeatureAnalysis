@@ -268,15 +268,19 @@ def compute_stats(dataframe, feature, scaling_method='standardize', outcome='res
     cox_pfs_dichotomized = cph_univariable_analysis(dataframe, feature, type='pfs', use_dichotomization=True)
     results['Cox OS p-value'] = cox_os['p']
     results['Cox OS HR'] = cox_os['exp(coef)']
+    results['Cox OS HR CI'] = (cox_os['exp(coef) lower 95%'], cox_os['exp(coef) upper 95%'])
     results['Cox OS assumption p-value'] = cox_os['assumption p']
     results['Cox PFS p-value'] = cox_pfs['p']
     results['Cox PFS HR'] = cox_pfs['exp(coef)']
+    results['Cox PFS HR CI'] = (cox_pfs['exp(coef) lower 95%'], cox_pfs['exp(coef) upper 95%'])
     results['Cox PFS assumption p-value'] = cox_pfs['assumption p']
     results['Cox OS dichotomized p-value'] = cox_os_dichotomized['p']
     results['Cox OS dichotomized HR'] = cox_os_dichotomized['exp(coef)']
+    results['Cox OS dichotomized HR CI'] = (cox_os_dichotomized['exp(coef) lower 95%'], cox_os_dichotomized['exp(coef) upper 95%'])
     results['Cox OS dichotomized assumption p-value'] = cox_os_dichotomized['assumption p']
     results['Cox PFS dichotomized p-value'] = cox_pfs_dichotomized['p']
     results['Cox PFS dichotomized HR'] = cox_pfs_dichotomized['exp(coef)']
+    results['Cox PFS dichotomized HR CI'] = (cox_pfs_dichotomized['exp(coef) lower 95%'], cox_pfs_dichotomized['exp(coef) upper 95%'])
     results['Cox PFS dichotomized assumption p-value'] = cox_pfs_dichotomized['assumption p']
     results['Logistic regression LOOCV AUC'] = logistic_regression_loocv_auc(dataframe, feature,
                                                                              scaling_method=scaling_method,
@@ -311,7 +315,7 @@ def analyze_feature(dataframe, feature, save_dir_path, scaling_method='standardi
     print(stats)
 
     def format_stat(value):
-        return "<0.00001" if 0 < value < 0.00001 else f"{value:.5f}"
+        return "<0.001" if 0 < value < 0.001 else f"{value:.3f}"
 
     # Create PDF file
     pdf = FPDF()
@@ -340,8 +344,10 @@ def analyze_feature(dataframe, feature, save_dir_path, scaling_method='standardi
     pdf.set_font('Arial', '', 10)
     scaling_name = f"{scaling_method.capitalize()}d" if scaling_method is not None else 'Not scaled'
     pdf.cell(40, 10, f'{scaling_name}:', ln=0)
-    pdf.cell(70, 10, f'Cox OS HR: {format_stat(stats["Cox OS HR"])}', ln=0)
-    pdf.cell(70, 10, f'Cox PFS HR: {format_stat(stats["Cox PFS HR"])}')
+    pdf.cell(70, 10, f'Cox OS HR: {format_stat(stats["Cox OS HR"])} ' \
+                     f'({format_stat(stats["Cox OS HR CI"][0])}-{format_stat(stats["Cox OS HR CI"][1])})', ln=0)
+    pdf.cell(70, 10, f'Cox PFS HR: {format_stat(stats["Cox PFS HR"])}' \
+                     f' ({format_stat(stats["Cox PFS HR CI"][0])}-{format_stat(stats["Cox PFS HR CI"][1])})')
     pdf.ln(5)
     pdf.cell(40, 10, f'', ln=0)
     pdf.cell(70, 10, f'Cox OS p-value: {format_stat(stats["Cox OS p-value"])}', ln=0)
@@ -356,8 +362,10 @@ def analyze_feature(dataframe, feature, save_dir_path, scaling_method='standardi
     pdf.cell(70, 10, f'logrank PFS p-value: {format_stat(stats["Logrank PFS p-value"])}')
     pdf.ln(5)
     pdf.cell(40, 10,f'', ln=0)
-    pdf.cell(70, 10, f'Cox OS HR: {format_stat(stats["Cox OS dichotomized HR"])}', ln=0)
-    pdf.cell(70, 10, f'Cox PFS HR: {format_stat(stats["Cox PFS dichotomized HR"])}')
+    pdf.cell(70, 10, f'Cox OS HR: {format_stat(stats["Cox OS dichotomized HR"])} ' \
+                     f'({format_stat(stats["Cox OS dichotomized HR CI"][0])}-{format_stat(stats["Cox OS dichotomized HR CI"][1])})', ln=0)
+    pdf.cell(70, 10, f'Cox PFS HR: {format_stat(stats["Cox PFS dichotomized HR"])} ' \
+                     f'({format_stat(stats["Cox PFS dichotomized HR CI"][0])}-{format_stat(stats["Cox PFS dichotomized HR CI"][1])})')
     pdf.ln(5)
     pdf.cell(40, 10, f'', ln=0)
     pdf.cell(70, 10, f'Cox OS p-value: {format_stat(stats["Cox OS dichotomized p-value"])}', ln=0)
