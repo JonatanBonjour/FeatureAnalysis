@@ -43,7 +43,7 @@ def violin_plot(dataframe, feature, save_dir_path=None, smoothing=0.3, outcome='
 def waterfall_plot(dataframe, feature, save_dir_path=None, outcome='response'):
     """Waterfall plot for the given feature"""
     df = dataframe.dropna(subset=[outcome]).reset_index(drop=True)
-    sorted_df = df.sort_values(by=feature, ascending=True)
+    sorted_df = df.sort_values(by=feature, ascending=True).reset_index(drop=True)
     palette = {1: '#1f77b4', 0: '#ff7f0e'}
     plt.figure(figsize=(8, 5))
 
